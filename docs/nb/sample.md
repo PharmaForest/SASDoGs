@@ -1,7 +1,7 @@
 ﻿---
-title: SAS Notebook  
-author: NA
-date: 2026-05-15
+title: "SAS Notebook"
+author: "NA"
+date: 2026-05-25
 ---
 # Notebook Sample
 
@@ -57,7 +57,7 @@ To disable expansion explicitly, set `expand=N`.
 Code cell execution is enabled by default.  
 Because this feature uses `ods` and `proc printto`, it may interfere with code that manages
 those destinations directly. In such cases, set `eval=N`.  
-The code cell itself is still included in output, but it is not executed, so no result is captured.
+The code cell itself is still included in output, but it is not executed, so no result is captured.  
 ```sas
 /* Not executed */
 proc print data=sashelp.class(obs=5);
@@ -78,5 +78,4 @@ If you need stronger support for non-English text, explicitly selecting fonts is
 
 For more detailed styling, use `style_ref` to point to a fileref whose contents are appended
 as custom CSS in the generated HTML output.  
-
 

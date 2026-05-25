@@ -67,25 +67,34 @@ that contains a notebook header block and markdown cell markers.
     %abort;
   %end ;
     
-  filename _prgin "&prgIn." ;
-  filename _nbout "&outLocation./&nbout." encoding="utf-8"  ;
-  filename _nbcells temp ;
-  filename _html_ "&outLocation./&htmlout." encoding="utf-8" ;
-  filename _jscells temp  ;
-  filename _mdout "&outLocation./&mdout." encoding="utf-8"  ;
-  filename _mdcells temp  ;
-  filename _ymlhead temp  ;
-  
-  %local outlist execution_count exitfl saveopt out_count i j 
+  %local _prgin _nbout _nbcells _html_ _jscells _mdout _mdcells _ymlhead 
+         _nbsrc _mdeval _mdsrc _code _log _elog _html _body _odsout 
+         outlist execution_count exitfl saveopt out_count i j 
          title author eval include expand sansserif monospace odsstyle style_ref 
-         _mdsrc outfile nbcontent ;
+         outfile nbcontent reflist ;
+
+  %let reflist =  _prgin _nbout _nbcells _html_ _jscells _mdout _mdcells _ymlhead _nbsrc _mdeval _mdsrc _code _log _elog _html _body _odsout ;
+  %do i = 1 %to %sysfunc(countw(&reflist.)) ;
+    %let %scan(&reflist., &i.) = _%sysfunc(datetime(), hex6.)%sysfunc(byte(%eval(96+&i.))) ;
+  %end ;
+
+  filename &_prgin. "&prgIn." ;
+  filename &_nbout. "&outLocation./&nbout." encoding="utf-8"  ;
+  filename &_nbcells. temp ;
+  filename &_html_. "&outLocation./&htmlout." encoding="utf-8" ;
+  filename &_jscells. temp  ;
+  filename &_mdout. "&outLocation./&mdout." encoding="utf-8"  ;
+  filename &_mdcells. temp  ;
+  filename &_ymlhead. temp  ;
+  
 
   %let nbcontent = WORK._%sysfunc(datetime(), hex16.)_ ;
 
   %let outlist = ;
-  %if %superq(nbOut) ne %then %let outlist = &outlist. _nbcells ;
-  %if %superq(htmlOut) ne %then %let outlist = &outlist. _jscells ;
-    
+  %if %superq(nbOut)   ne %then %let outlist = &outlist. &_nbcells. ;
+  %if %superq(htmlOut) ne %then %let outlist = &outlist. &_jscells. ;
+  %if %superq(mdOut)   ne %then %let outlist = &outlist. &_mdcells. ;  
+
   %let execution_count = 0 ;
   %let exitfl = 1 ;
 
@@ -100,8 +109,8 @@ that contains a notebook header block and markdown cell markers.
   %let style_ref = ;
 
   data _null_ ;
-    infile _prgIn end = eof ;
-    file _ymlhead ;
+    infile &_prgIn. end = eof ;
+    file &_ymlhead. ;
     retain header 0 ;
     length k v e_text $500 ;
   
@@ -117,7 +126,8 @@ that contains a notebook header block and markdown cell markers.
       end ;
     
     k = strip(upcase(kscanx(_infile_, 1, ":"))) ;
-    v = strip(kscanx(_infile_, 2, ":"));
+    v = strip(kscanx(_infile_, 2, ":")) ;
+    v = prxchange('s/[\cA-\cZ]//', -1,  v);
     if lengthn(v) = 0 then return ;
     select ;
       when(k="AUTHOR") call symputx("nbauthor", v, "L");
@@ -136,24 +146,24 @@ that contains a notebook header block and markdown cell markers.
           e_text = prxchange('s/(?<!\$)%/&#37;/', -1, e_text) ;
           e_text = prxchange('s/\$(%|&)/$1/', -1, e_text) ;
           len = lengthn(e_text) ;
-          put '"' e_text $varying. len '\n",' ;
+          put '"' e_text $varying. len '\n"' ;
         end ;
     end;
   run ;
   
-  %if &exitfl. = 1 %then 
+  %if %superq(exitfl) = 1 %then 
     %do ;
       %put ERROR: No header;
       %goto exit ;
     %end ;
 
   data &nbcontent. ;
-    infile _prgIn end = eof firstobs=&firstline.;
+    infile &_prgIn. end = eof firstobs=&firstline.;
     length text $32767 cell_type $8 ;
     retain cell_type "code" rows 0 chunk 1 eval inc expand "" ;
   
     input ;
-    text = _infile_ ;
+    text = prxchange('s/[\cA-\cZ]//', -1,  _infile_);
     t_space = lengthc(_infile_) - lengthn(_infile_);
       
     if prxmatch(cats('/', &mstartPtn. ,'/'), text) > 0 then 
@@ -198,157 +208,139 @@ that contains a notebook header block and markdown cell markers.
   run ;
 
 %do i = 1 %to &nchunk. ; 
-  filename _htmlsrc temp ;
-  filename _nbsrc temp ;
+  filename &_nbsrc. temp ;
   
   data _null_;
-    file _htmlsrc ;
+    file &_nbsrc. ;
     set &nbcontent. end = eof ;
     length e_text $32767 ;
     where chunk = &i. ;
-    
+    e_text = text ;
     if cell_type = "markdown" then
       do ;
-        e_text = htmlencode(text, "lt gt quot") ;
         e_text = prxchange('s/(?<!\$)&/&#38;/', -1, e_text) ;
         e_text = prxchange('s/(?<!\$)%/&#37;/', -1, e_text) ;
         e_text = prxchange('s/\$(%|&)/$1/', -1, e_text) ;
+        len = lengthn(e_text) + t_space ; 
+        put '"' e_text $varying. len '\n"' ;
       end ;
-    else e_text = htmlencode(text, "lt gt amp quot") ;
+      else 
+        do ;
+          e_text = prxchange('s/("|\\|\/)/\\$1/', -1, e_text) ;
+          len = lengthn(e_text) + t_space ;
+          put '"' e_text $varying. len  '\n"' @ ;
+          if eof = 0 then put ',' ;
+          else put ' ' ;
+        end ;
 
-    len = lengthn(e_text) + t_space ; 
-      
-    put '"' e_text $varying. len @ ;
-    if eof = 0 then put '\n",' ;   
-    else 
+    if eof = 1 then  
       do ;
-        put '"' ;
         call symputx("cell_id", uuidgen(), "L") ;
         call symputx("cell_type", cell_type,"L") ;
         call symputx("cell_exp", expand,"L") ;
         call symputx("cell_inc", inc,"L") ;
+        call symputx("cell_eval", eval,"L") ;
       end ;
   run ;
   
-  data _null_ ;
-    file _nbsrc ;
-    infile _htmlsrc end = eof ;
-    length line $32767 ;
-    input ;
-    line = prxchange('s/"(.*?)\\n", ?.*/$1/', 1, htmldecode(_infile_)) ;
-    if compress(line) = '""' then line = "" ;
-    line = prxchange('s/("|\\)/\\$1/', -1, line) ;
-    len = lengthn(line) ;
-    put '"' line $varying. len @ ;
-    if eof = 0 then put '\n",' ;   
-    else put '"' ;
-  run ;
-  
-  %if &cell_type. = markdown %then 
+  %if %superq(cell_type) = markdown %then 
     %do ;
-      %if &cell_inc. = N %then %goto mdskip ;
+      %if %superq(cell_inc) = N %then %goto mdskip ;
 
-      filename _mdsrc_e temp ;
-      filename _mdsrc_d temp ;
-      filename _mdeval temp ;
-      
-      proc stream outfile=_mdeval ; begin &streamdelim.;
-%if &cell_exp. = Y %then %do ;
-%include _htmlsrc 
-%end ;
-%if &cell_exp. = N %then &streamdelim. readfile _htmlsrc;;
+      %if %superq(cell_exp) = Y %then 
+        %do ;
+          filename &_mdeval. temp ;
+          proc stream outfile=&_mdeval. ; begin &streamdelim.;
+%include &_nbsrc. ; 
 ;;;;
-      run ; 
-      
-      %do k  = 1 %to 2 ;
-        data _null_ ;
-          file %scan(_mdsrc_e _mdsrc_d, &k.) ;
-          infile _mdeval end = eof ;
-          length d_text line $32767 ;
-          input ;
-          d_text = htmldecode(_infile_);
-        %if &k. = 1 %then 
-          %do ;            
-            do while (prxmatch('/".*\\n",/', d_text) > 0) ;
-              line = prxchange('s/"(.*?\\n)", ?.*/$1/', 1, d_text) ;
-              line = prxchange('s/\\(?!n\s*$)/\\\\/' , -1, line);
-              line = catt('"', prxchange('s/"/\\"/', -1, line), '",') ;
+          run ; 
+
+          data _null_ ;
+            file &_nbsrc.  ;
+            infile &_mdeval. end = eof ;
+            length text line $32767 ;
+            input ;
+            text = _infile_ ;
+            do while (prxmatch('/".*\\n"/', text) > 0) ;
+              line = prxchange('s/(".*?\\n")\s*.*/$1/', 1, text) ;
               len = lengthn(line) ;
-              d_text = prxchange('s/".*?\\n", ?//', 1, d_text) ;
+              text = prxchange('s/".*?\\n"\s*//', 1, text) ;
               put line $varying. len ;
             end;
-            line = d_text ;
+          run ;
+          filename &_mdeval. clear ;
+        %end ;
+      
+      %do j  = 1 %to %sysfunc(countw(&outlist.)) ;
+        %let outfile = %scan(&outlist., &j.) ;
+        filename &_mdsrc. temp ;
+
+        data _null_ ;
+          file &_mdsrc. ;
+          infile &_nbsrc. end = eof ;
+          length d_text $32767 ;
+          input ;
+          d_text = htmldecode(_infile_);
+          %if %superq(outfile) = %superq(_mdcells) %then 
+            %do ;
+              len = lengthn(d_text) - 4 ; /* "\n" */
+              d_text = prxchange('s/"(.*?)\\n"/$1/', -1, d_text) ;
+              put d_text $varying. len  ;
+            %end ;
+          %else 
+            %do ;
+              t_space = lengthn(prxchange('s/"(.*?)(\s*)\\n"/"$2"/', -1, d_text)) -2 ; /* quote to keep space */
+              d_text = prxchange('s/"(.*?)\\n"/$1/', -1, d_text) ;
+              len = lengthn(d_text) + t_space ; 
+              put '"' d_text $varying. len '\n"' @ ;
+              if eof = 0 then put ',' ;
+              else put ' ' ;
+            %end ;
+        run ;
+
+        %if %superq(outfile) = %superq(_mdcells) %then
+          %do ;           
+            data _null_ ;
+              file &outfile. mod ;
+              infile &_mdsrc. ;
+              input ;
+              put _infile_ ;
+            run ;  
           %end ;
         %else 
           %do ;
-            do while (prxmatch('/".*\\n",/', d_text) > 0) ;
-              line = prxchange('s/"(.*?)\\n",.*/$1/', 1, d_text) ;
-              len = lengthc(prxchange('s/"(.*?)\\n",.*/$1/', 1, d_text)) ;
-              d_text = prxchange('s/".*?\\n", ?//', 1, d_text) ;
-              put line $varying. len ;
-            end;
-            line = dequote(d_text) ;                    
-          %end ;
-          if eof = 1 then 
-            do ;
-              len = lengthn(line) ;
-              put line $varying. len ;
-            end ;
-        run ;
-      %end ;
-          
-                
-      %do j = 1 %to %sysfunc(countw(&outlist.)) ;
-        %let outfile = %scan(&outlist., &j.) ;
-
-        proc stream outfile= &outfile. mod ; begin &streamdelim.;
+            proc stream outfile= &outfile. mod ; begin &streamdelim.;
 {
   "cell_type": "markdown",
   "id": "&cell_id.",
   "metadata": {},
   "source": [
-&streamdelim. readfile _mdsrc_e;
+&streamdelim. readfile &_mdsrc.;
    ]
   }
   %if &i. < &nchunk. %then , ;   
 ;;;;
-        run ; 
+            run ; 
+          %end ;
+        filename &_mdsrc. clear ;
       %end ;
-      %if %superq(mdout) ne %then
-        %do ;           
-          data _null_ ;
-            file _mdcells mod ;
-            infile _mdsrc_d ;
-            input ;
-            put _infile_ ;
-          run ;  
-        %end ;
-        
-      filename _mdsrc_e clear ;
-      filename _mdsrc_d clear ;
-      filename _mdeval clear ;
       %mdskip:
     %end ;
   %else %if &cell_type. = code %then 
     %do;
-      filename _code temp ;
-      filename _log temp ;
-      filename _elog temp ;
-      filename _html temp ;
-      filename _body temp ;
-      filename _odsout temp ;
+      filename &_code. temp ;
+      filename &_log. temp ;
+      filename &_elog. temp ;
+      filename &_html. temp ;
+      filename &_body. temp ;
+      filename &_odsout. temp ;
     
       data _null_;
-        file _code ;
+        file &_code. ;
         set &nbcontent. end = eof ;
         where chunk = &i. ;
         len = lengthn(text) ;
         put text $varying. len ;
-        if eof = 1 then 
-          do;
-            call symputx("cell_eval", eval,"L") ;
-            call symputx("cell_inc", inc,"L") ;
-          end ;
       run ;
     
       %if &cell_eval. = Y %then 
@@ -358,22 +350,22 @@ that contains a notebook header block and markdown cell markers.
           
           %let saveopt = %sysfunc(getoption(notes)) %sysfunc(getoption(source)) ;
           options nosource nonotes ;
-          ods html5 file = _odsout style=&odsstyle. ;
-          proc printto log = _log new ;
+          ods html5 file = &_odsout. style=&odsstyle. ;
+          proc printto log = &_log. new ;
           run ;
           options &saveopt. ;
-          %include _code ;
+          %include &_code. ;
           proc printto ;
           run ;
     
           ods html5 close ;
         
           data _null_;
-            file _html ;
-            infile _odsout end = eof ;
+            file &_html. ;
+            infile &_odsout. end = eof ;
             length e_text $32767 ;
             input ;
-            e_text = prxchange('s/("|\\)/\\$1/', -1, _infile_) ;
+            e_text = prxchange('s/("|\\|\/)/\\$1/', -1, _infile_) ;
             len = lengthn(e_text) ;
             put '"' e_text $varying. len @ ;
             if eof = 0 then put '\n",' ; 
@@ -381,32 +373,33 @@ that contains a notebook header block and markdown cell markers.
           run ;
   
           data _null_;
-            file _body ;
-            infile _odsout end = eof ;
+            file &_body. ;
+            infile &_odsout. end = eof ;
             retain outfl 0 ;
 
             input ;
-            length e_text $32767 ;
-            e_text = prxchange('s/("|\\)/\\$1/', -1, _infile_) ;
-            len = lengthn(e_text) ;
-            if prxmatch("/<div/", e_text) > 0 then outfl = 1 ; 
-            if prxmatch("/<\/body>/", e_text) > 0 then 
+            length raw_text e_text $32767 ;
+            raw_text = _infile_ ;
+            if prxmatch("/<div/", raw_text) > 0 then outfl = 1 ; 
+            if prxmatch("/<\/body>/", raw_text) > 0 then 
               do ;
                 put '""' ;
                 stop ;
               end ;
+            e_text = prxchange('s/("|\\|\/)/\\$1/', -1, raw_text) ;
+            len = lengthn(e_text) ;
             if outfl = 1 then put '"' e_text $varying. len '\n",' ;
           run ;
 
           data _null_;
-            infile _log end = eof ;
-            file _elog ;
+            infile &_log. end = eof ;
+            file &_elog. ;
             length e_text $32767 ;
             input ;
             
-            e_text = htmlencode(htmlencode(_infile_)) ;
-            e_text = compress(e_text, '0c'x);
-            e_text = prxchange('s/("|\\)/\\$1/', -1, e_text) ;
+            e_text = htmlencode(_infile_) ;
+            e_text = prxchange('s/[\cA-\cZ]//', -1,  e_text);
+            e_text = prxchange('s/("|\\|\/)/\\$1/', -1, e_text) ;
             len = lengthn(e_text) ;
             
             put '"' e_text $varying. len @ ;
@@ -418,15 +411,15 @@ that contains a notebook header block and markdown cell markers.
         %do ;
           %let out_count = null ;
           data _null_ ;
-            file _html ;
+            file &_html. ;
             put '""' ;
           run ;
           data _null_ ;
-            file _body ;
+            file &_body. ;
             put '""' ;
           run ;
           data _null_ ;
-            file _elog ;
+            file &_elog. ;
             put '""' ;
           run ;        
         %end ;
@@ -435,7 +428,20 @@ that contains a notebook header block and markdown cell markers.
 
     %do j = 1 %to %sysfunc(countw(&outlist.)) ;
       %let outfile = %scan(&outlist., &j.) ;
-      proc stream outfile=&outfile. mod ; begin &streamdelim.;
+      %if %superq(outfile) = %superq(_mdcells) %then 
+        %do ;
+          data _null_ ;
+            file &outfile. mod ;
+            infile &_code. end = eof ;
+            input ;
+            if _n_ = 1 then put "```sas" ;
+            put _infile_ ;
+            if eof = 1 then put "```" ;
+          run ;
+        %end ;
+      %else 
+        %do ;
+          proc stream outfile=&outfile. mod ; begin &streamdelim.;
   {
    "cell_type": "code",
    "execution_count": &out_count.,
@@ -446,18 +452,18 @@ that contains a notebook header block and markdown cell markers.
      "data": {
       "text/html": [
 ;;;;
-      run ;
+          run ;
       
-   data _null_ ;
-     file &outfile. mod ;
-     %if &outfile = _nbcells %then infile _html ;     
-     %if &outfile = _jscells %then infile _body ;
-     ;
-     input ;
-     put _infile_ ;
-   run ;
+          data _null_ ;
+            file &outfile. mod ;
+            %if %superq(outfile) = %superq(_nbcells) %then infile &_html. ;     
+            %if %superq(outfile) = %superq(_jscells) %then infile &_body. ;
+            ;
+            input ;
+            put _infile_ ;
+          run ;
    
-   proc stream outfile=&outfile. mod ; begin &streamdelim.;
+          proc stream outfile=&outfile. mod ; begin &streamdelim.;
         ],
       "text/plain": [
       %if &cell_eval. = Y %then 
@@ -472,57 +478,46 @@ that contains a notebook header block and markdown cell markers.
      "output_type": "display_data"
     }
    ],
-%if &outfile. = _jscells %then %do; 
+%if %superq(outfile) = %superq(_jscells) %then %do; 
   "log": [
-&streamdelim. readfile _elog; 
+&streamdelim. readfile &_elog.; 
    ],
 %end ;
    "source": [
-&streamdelim. readfile _nbsrc;
+&streamdelim. readfile &_nbsrc.;
   ]
  }
   %if &i. < &nchunk. %then , ;   
 ;;;;
-      run ;
-    %end ;
-    %if %superq(mdout) ne %then 
-      %do ;
-        data _null_ ;
-          file _mdcells mod ;
-          infile _code end = eof ;
-          input ;
-          if _n_ = 1 then put "```sas" ;
-          put _infile_ ;
-          if eof = 1 then put "```" ;
-        run ;
-      %end ;
+          run ;
+        %end ;
+    %end ;    
     %codeskip:
-    filename _code clear ;
-    filename _log clear ;
-    filename _elog clear ;
-    filename _html clear ;
-    filename _body clear ;        
-    filename _odsout clear ;
+    filename &_code. clear ;
+    filename &_log. clear ;
+    filename &_elog. clear ;
+    filename &_html. clear ;
+    filename &_body. clear ;        
+    filename &_odsout. clear ;
   %end ; 
-/*     filename _htmlsrc clear ; */
+  filename &_nbsrc. clear ;
 %end ;
 
   %if %superq(nbout) ne %then 
     %do ;
-      proc stream outfile=_nbout prescol ; begin &streamdelim.;
-{
-  "cells": [ 
-  ;;;;
-      run ;
-/* &streamdelim. readfile _nbcells; */
+
  data _null_ ;
-   file _nbout mod ;
-   infile _nbcells ;
+   file &_nbout. ;
+   infile &_nbcells. ;
    input ;
+   if _n_ = 1 then put
+ '   {'
+/' "cells": ['
+   ;
    put _infile_ ;
 run ;
 
-      proc stream outfile=_nbout mod ; begin &streamdelim.;
+      proc stream outfile=&_nbout. mod ; begin &streamdelim.;
  ],
   "metadata": {
   "kernelspec": {
@@ -544,20 +539,15 @@ run ;
 }  
 ;;;;
       run;
-    %end ; 
+    %end ;
+    
   %if %superq(htmlout) ne %then  
     %do ;
 
-data _null_ ;
-  file _html_ ;
-  %if %superq(style_ref) ne %then 
-    %do ;
-      infile &style_ref. end = eof  ;
-      input ;
-    %end ;
+      data _null_ ;
+        file &_html_. ;
 
-  if _n_ = 1 then 
-  put 
+        put 
  '<!--'
 /'Notebook Style Template'
 /' '
@@ -759,10 +749,21 @@ data _null_ ;
 /'    .cm-s-default span.cm-link { color: #d381c3; }'
 /'   /* Custom Style */  '
 ;
+      run ;
 
-  %if %superq(style_ref) ne %then put _infile_ ;;
+  %if %superq(style_ref) ne %then 
+    %do;
+      data _null_ ;
+        file &_html_. mod ;
+        infile &style_ref.  ;
+        input ;
+        put _infile_ ;
+      run ;
+    %end ;
 
-put 
+      data _null_ ;
+        file &_html_. mod ;
+        put 
  '  </style>'
 /'</head>'
 /' '
@@ -821,6 +822,7 @@ put
 /'  <script src="https://cdn.jsdelivr.net/npm/codemirror@5/mode/sas/sas.min.js"></script>'
 /'  <script src="https://cdn.jsdelivr.net/npm/codemirror@5/addon/runmode/runmode.min.js"></script>'
 /'  <script src="https://cdn.jsdelivr.net/npm/marked@15/marked.min.js"></script>'
+/'  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>'
 /'  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.js"></script>'
 /'  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16/dist/contrib/auto-render.min.js"></script>'
 /' '
@@ -828,16 +830,15 @@ put
 /'{'
 /'  "cells": ['
 ;
-run ;
+      run ;
 
+      data _null_ ;
+        file &_html_. mod ;
+        infile &_jscells. end = eof  ;
+        input ;
 
-data _null_ ;
-  file _html_ mod ;
-  infile _jscells end = eof  ;
-  input ;
-
-  put _infile_ ;
-  if eof = 1 then put
+        put _infile_ ;
+        if eof = 1 then put
  '  ]'
 /'}'
 /'  </script>'
@@ -874,8 +875,15 @@ data _null_ ;
 /'          displayCount: function (count) {'
 /'            return typeof count === "number" ? count : " ";'
 /'          },'
+/'          sanitizeHtml: function (html) {'
+/'            if (!(window.DOMPurify && typeof window.DOMPurify.sanitize === "function")) {'
+/'              return html;'
+/'            }'
+/'            return window.DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });'
+/'          },'
 /'          renderMarkdown: function (text) {'
-/'            return (window.marked && typeof window.marked.parse === "function") ? window.marked.parse(text) : text;'
+/'            var html = (window.marked && typeof window.marked.parse === "function") ? window.marked.parse(text) : text;'
+/'            return this.sanitizeHtml(html);'
 /'          },'
 /'          cellKey: function (cell, idx) {'
 /'            return (cell && cell.id) ? String(cell.id) : String(idx);'
@@ -894,7 +902,7 @@ data _null_ ;
 /'            var data = item.data || {};'
 /'            var html = this.normalize(data["text/html"]);'
 /'            if (html) {'
-/'              return { html: html, text: "" };'
+/'              return { html: this.sanitizeHtml(html), text: "" };'
 /'            }'
 /'            return { html: "", text: this.normalize(data["text/plain"]) };'
 /'          },'
@@ -942,38 +950,40 @@ data _null_ ;
 /'</body>'
 /'</html>'
 ;  
-run ;
+      run ;
 
     %end ;
   %if %superq(mdout) ne %then 
     %do ;
-      filename _mdsrc temp ;
-      proc stream outfile=_mdsrc quoting=double ; begin &streamdelim.;
-%include _ymlhead;
+      filename &_mdsrc. temp ;
+      proc stream outfile=&_mdsrc. quoting=double ; begin &streamdelim.;
+%include &_ymlhead.;
 ;;;;
-        run ; 
+      run ; 
+
       data _null_ ;
-        file _mdout ;
-        infile _mdsrc ;
+        file &_mdout. ;
+        infile &_mdsrc. ;
         if _n_ = 1 then put "---"
-                           /"title: &nbtitle.  "
-                           /"author: &nbauthor."
+                           /'title: "' "&nbtitle."  '"'
+                           /'author: "' "&nbauthor." '"'
                            ;
         input ;
         length d_text line $32767 ;
         d_text = htmldecode(_infile_);
-            do while (prxmatch('/".*\\n",/', d_text) > 0) ;
-              line = prxchange('s/"(.*?)\\n",.*/$1/', 1, d_text) ;
-              d_text = prxchange('s/".*?\\n",//', 1, d_text) ;
+            do while (prxmatch('/".*\\n"/', d_text) > 0) ;
+              line = prxchange('s/"(.*?)\\n".*/$1/', 1, d_text) ;
+              d_text = prxchange('s/".*?\\n"\s*//', 1, d_text) ;
               len = lengthn(line) ;
               put line $varying. len ;
             end;
         put "---" ;
       run ;
+      filename &_mdsrc. clear ;
       
       data _null_ ;
-        file _mdout mod ;
-        infile _mdcells ;
+        file &_mdout. mod ;
+        infile &_mdcells. ;
         input ;
         put _infile_ ;
       run ;
@@ -985,12 +995,12 @@ run ;
   quit ;
 
   %exit: 
-  filename _nbout clear ;
-  filename _nbcells clear ;
-  filename _html_ clear ;
-  filename _jscells clear ;
-  filename _mdout clear ;
-  filename _mdcells clear ;
-  filename _ymlhead clear ;
+  filename &_nbout. clear ;
+  filename &_nbcells. clear ;
+  filename &_html_. clear ;
+  filename &_jscells. clear ;
+  filename &_mdout. clear ;
+  filename &_mdcells. clear ;
+  filename &_ymlhead. clear ;
 
 %mend generateNB ;
