@@ -69,7 +69,7 @@ that contains a notebook header block and markdown cell markers.
     
   %local _prgin _nbout _nbcells _html_ _jscells _mdout _mdcells _ymlhead 
          _nbsrc _mdeval _mdsrc _code _log _elog _html _body _odsout 
-         outlist execution_count exitfl saveopt out_count i j 
+         outlist execution_count exitfl saveopt bomopt out_count i j 
          title author eval include expand sansserif monospace odsstyle style_ref 
          outfile nbcontent reflist ;
 
@@ -107,6 +107,9 @@ that contains a notebook header block and markdown cell markers.
   %let monospace = "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Menlo, Consolas, monospace ;
   %let odsstyle = HTMLBlue ;
   %let style_ref = ;
+
+  %let bomopt = %sysfunc(getoption(bomfile)) ;
+  options nobomfile ;
 
   data _null_ ;
     infile &_prgIn. end = eof ;
@@ -165,7 +168,9 @@ that contains a notebook header block and markdown cell markers.
     input ;
     text = prxchange('s/[\cA-\cZ]//', -1,  _infile_);
     t_space = lengthc(_infile_) - lengthn(_infile_);
-      
+  
+    if eof = 1 then call symputx("nchunk", chunk) ;
+
     if prxmatch(cats('/', &mstartPtn. ,'/'), text) > 0 then 
       do ;
         if rcount > 0 then chunk + 1 ; 
@@ -203,8 +208,6 @@ that contains a notebook header block and markdown cell markers.
           end ;
       end ;
     else if rcount > 0 then output ;
-  
-    if eof = 1 then call symputx("nchunk", chunk) ;
   run ;
 
 %do i = 1 %to &nchunk. ; 
@@ -228,9 +231,9 @@ that contains a notebook header block and markdown cell markers.
         do ;
           e_text = prxchange('s/("|\\|\/)/\\$1/', -1, e_text) ;
           len = lengthn(e_text) + t_space ;
-          put '"' e_text $varying. len  '\n"' @ ;
-          if eof = 0 then put ',' ;
-          else put ' ' ;
+          put '"' e_text $varying. len  @ ;
+          if eof = 0 then put '\n",' ;
+          else put '"' ;
         end ;
 
     if eof = 1 then  
@@ -292,9 +295,9 @@ that contains a notebook header block and markdown cell markers.
               t_space = lengthn(prxchange('s/"(.*?)(\s*)\\n"/"$2"/', -1, d_text)) -2 ; /* quote to keep space */
               d_text = prxchange('s/"(.*?)\\n"/$1/', -1, d_text) ;
               len = lengthn(d_text) + t_space ; 
-              put '"' d_text $varying. len '\n"' @ ;
-              if eof = 0 then put ',' ;
-              else put ' ' ;
+              put '"' d_text $varying. len  @ ;
+              if eof = 0 then put '\n",' ;
+              else put '"' ;
             %end ;
         run ;
 
@@ -994,6 +997,7 @@ run ;
     delete %scan(&nbcontent., 2, .) ;
   quit ;
 
+  options &bomopt. ;
   %exit: 
   filename &_nbout. clear ;
   filename &_nbcells. clear ;
