@@ -19,6 +19,7 @@ project:
     - file: index.md
     - file: macro.md
     - file: example.ipynb
+    - file: nb/sample.ipynb
     - file: build_deploy.ipynb 
     - file: changelog.md
 # Site options allow you to configure a theme’s behavior.

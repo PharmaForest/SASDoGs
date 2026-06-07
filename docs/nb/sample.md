@@ -1,11 +1,13 @@
 ---
 title: "SAS Notebook"
-author: "NA"
-date: 2026-05-30
+date: 2026-06-07
 ---
-# Notebook Sample
+# Notebook Format Guide
 
-This sample demonstrates notebook-style documentation inspired by R Markdown, Jupyter Notebook, and nbconvert.  
+This document describes a notebook-style documentation format for `%generateNB`, inspired by R Markdown, Jupyter Notebook, and nbconvert.   
+Sample scripts and additional converted notebook examples can be found in docs/nb.  
+This document itself was also generated from documentation comments in a SAS script.
+
 It can generate `.ipynb`, `.html`, and `.md` outputs from a SAS program that remains
 directly executable as a standard SAS source file.  
 It also supports notebook-style options such as `eval` and `include`, as well as
@@ -43,8 +45,9 @@ run;
 ## Using Macros Inside Markdown Cells
 Macro expansion is enabled by default.  
 To allow `%` and `&` to expand inside markdown cells, prefix them with `$`.  
+The block below is a example containing macros and macro variables.
 ```
-&test1. is not expanded.  
+&test1. is &test1.(not expanded)  
 &test2. is expanded.  
 
 hello world from macro.  

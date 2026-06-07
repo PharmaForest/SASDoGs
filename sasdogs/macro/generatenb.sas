@@ -99,7 +99,7 @@ that contains a notebook header block and markdown cell markers.
   %let exitfl = 1 ;
 
   %let nbtitle = SAS Notebook ;
-  %let nbauthor = NA ;
+  %let nbauthor = ;
   %let nbeval = Y ;
   %let nbinclude = Y ;
   %let nbexpand = Y ;
@@ -534,8 +534,12 @@ run ;
    "mimetype": "text/x-sas",
    "name": "sas"
   },
-  "title": "&nbtitle.",
+  "title": "&nbtitle."
+  %if %superq(nbauthor) ne %then 
+    %do ;
+   ,
   "author": "&nbauthor."   
+    %end ;
  },
  "nbformat": 4,
  "nbformat_minor": 5
@@ -563,9 +567,15 @@ run ;
 /'<html>'
 /'<head>'
 /'  <meta charset="utf-8">'
-/'  <meta http-equiv="X-UA-Compatible" content="IE=edge">'
-/' <meta name="author" content="' "&nbauthor." '">'
-/'  <meta name="viewport" content="width=device-width, initial-scale=1">'
+/'  <meta http-equiv="X-UA-Compatible" content="IE=edge">' ;
+
+%if %superq(nbauthor) ne %then 
+  %do ;
+    put '  <meta name="author" content="' "&nbauthor." '">';
+  %end ;
+
+put
+ '  <meta name="viewport" content="width=device-width, initial-scale=1">'
 /'  <title>' "&nbtitle." '</title>'
 /' '
 /'  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5.8.1/github-markdown-light.min.css">'
@@ -968,8 +978,10 @@ run ;
         file &_mdout. ;
         infile &_mdsrc. ;
         if _n_ = 1 then put "---"
-                           /'title: "' "&nbtitle."  '"'
+                           /'title: "' "&nbtitle."  '"' 
+                       %if %superq(nbauthor) ne %then %do ;
                            /'author: "' "&nbauthor." '"'
+                       %end ;
                            ;
         input ;
         length d_text line $32767 ;

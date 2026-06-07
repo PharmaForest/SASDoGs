@@ -88,6 +88,53 @@ Supports multiple documentation depth levels for flexible organization.
 ---
  
  
+## generatenb
+ 
+Generate notebook-style artifacts from an annotated SAS program
+
+Creates `.ipynb`, single `.html`, and `.md` outputs from a SAS program
+that contains a notebook header block and markdown cell markers.
+
+### Parameters
+
+- **prgIn**: Path to the input SAS program file
+- **outLocation**: Directory where output files are written
+- **nbOut**: Output notebook filename for `.ipynb` generation (optional)
+- **htmlOut**: Output notebook filename for `.html` generation (optional)
+- **mdOut**: Output markdown filename for `.md` generation (optional)
+- **hstartPtn**: Pattern that marks the start of the notebook header block
+- **hendPtn**: Pattern that marks the end of the notebook header block
+- **mstartPtn**: Pattern that marks the start of a markdown cell block
+- **mendPtn**: Pattern that marks the end of a markdown cell block
+- **optPtn**: Pattern that marks a code-cell option line
+
+### Header Options In The Source File
+
+- **title**: Notebook title used in generated outputs
+- **author**: Author name written to notebook metadata and HTML meta tags
+- **eval**: Default code-cell execution flag (`Y` or `N`)
+- **include**: Default flag to include a cell in outputs (`Y` or `N`)
+- **expand**: Default flag to expand macro expressions inside markdown cells (`Y` or `N`)
+- **sansserif**: Font stack for proportional text in HTML output
+- **monospace**: Font stack for code and preformatted text in HTML output
+- **odsstyle**: ODS style used while generating HTML results from executed code cells
+- **style_ref**: Optional fileref whose contents are appended as custom CSS in HTML output
+
+### Usage Example
+
+```sas
+%generateNB(
+  prgIn=/path/to/sample.sas,
+  outLocation=/path/to/output,
+  nbOut=sample.ipynb,
+  htmlOut=sample.html,
+  mdOut=sample.md
+);
+```
+  
+---
+ 
+ 
 ## packagedoc
  
 Main macro for generating source files for SAS package documentation
