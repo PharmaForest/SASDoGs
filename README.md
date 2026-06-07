@@ -6,11 +6,14 @@ SASDoGs is a package for automatically generating documentation from comments in
 Built on the SAS Package Framework (SPF) documentation generation functionality, it features:  
 - **Versatile usage**: Can be used with SAS projects beyond SPF file/folder structures.
 - **Rich documentation generation**: In addition to markdown files like SPF, it can generate files for Sphinx and Jupyter Book (MyST).
+- **Notebook artifact generation**: Can generate `.ipynb` and notebook-style `.html` files from SAS programs for documentation examples.
 - **Documentation from existing SPF packages**: Generate documentation directly from SPF package ZIP files when corresponding version documentation is not available locally.
 - **GitHub Pages deployment automation**: Generate GitHub Actions workflows to automate documentation builds and deployment to GitHub Pages.
 
 For detailed usage instructions, refer to the [documentation](https://PharmaForest.github.io/SASDoGs/), which also serves as a working example.  
 It includes macro specifications and code execution examples using Jupyter Notebook.
+
+The package now also includes `%generateNB()` for creating notebook-style documentation artifacts from SAS programs.
 
 The main repository for this package is https://github.com/PharmaForest/SASDoGs.  
 Please submit issues and pull requests to this repository.

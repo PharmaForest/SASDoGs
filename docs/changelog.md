@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.3] - 2026-06-07
+
+#### Added
+- Added `%generateNB` for generating notebook-style `.ipynb`, `.html`, and `.md` artifacts from SAS programs
+
 ## [v0.2] - 2026-03-09
 
 #### Added
