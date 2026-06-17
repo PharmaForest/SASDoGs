@@ -1,0 +1,15 @@
+{
+  "_captured_at": "2026-06-17T12:50:43+07:00",
+  "_captured_run_id": "r_019ed42153347542af4daa17e1e8a343",
+  "status": "ok",
+  "exit_code": 0,
+  "log_contains": [
+    "NOTE: Ensure your GitHub Pages settings for this repository are set to deploy with **GitHub Actions**.",
+    "name: Docs (Jupyter Book/Sphinx) GitHub Pages Deploy",
+    "        run: sphinx-build -b html docs docs/_build/html",
+    "        uses: actions/deploy-pages@v4",
+    "NOTE: Read 79 rows from"
+  ],
+  "log_does_not_contain": ["ERROR:", "[JENNER-ERROR"],
+  "diagnostics": {"parse_warnings": [], "runtime_warnings": []}
+}

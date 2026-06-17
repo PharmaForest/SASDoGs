@@ -1,0 +1,8 @@
+{
+  "bundle": "t001_generateworkflows",
+  "source_file": "sasdogs/macro/_inner.sas",
+  "source_blob_sha": "e6742b7a536f5f5a55f7efb3928c799a424917ac",
+  "source_commit": "ddf2e6f2fea416d99dec9551287dc61e8b142c5c",
+  "tier": "real_data",
+  "notes": "SASDoGs _generateWorkflows macro (from _inner.sas), unchanged. Added a self-contained caller that writes deploy.yml into WORK and echoes it. The macro emits the package's GitHub Actions workflow that builds the docs (Jupyter Book/MyST or Sphinx) and deploys to GitHub Pages; the run produces the full 79-line deploy.yml."
+}
